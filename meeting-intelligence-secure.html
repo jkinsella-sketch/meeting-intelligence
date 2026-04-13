@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meeting Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #090e1a;
+    --surface: #0f1623;
+    --surface2: #161e2e;
+    --surface3: #1c2438;
+    --border: #1e2d47;
+    --border2: #263550;
+    --accent: #3d8ef0;
+    --accent-dim: rgba(61,142,240,0.1);
+    --accent2: #6d4aff;
+    --accent2-dim: rgba(109,74,255,0.08);
+    --text: #d8e4f5;
+    --text-muted: #4d6080;
+    --text-dim: #7d96b8;
+    --success: #29c98a;
+    --success-dim: rgba(41,201,138,0.1);
+    --warning: #f0a429;
+    --warning-dim: rgba(240,164,41,0.1);
+    --error: #ef5b5b;
+    --manager-color: #9b74ff;
+    --manager-dim: rgba(155,116,255,0.1);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 35% at 10% 5%, rgba(61,142,240,0.07) 0%, transparent 65%),
+      radial-gradient(ellipse 40% 25% at 90% 90%, rgba(109,74,255,0.05) 0%, transparent 65%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    max-width: 880px;
+    margin: 0 auto;
+    width: 100%;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── HEADER ── */
+  header {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(9,14,26,0.92);
+    backdrop-filter: blur(20px);
+    flex-shrink: 0;
+  }
+
+  .hd-left { display: flex; align-items: center; gap: 10px; }
+
+  .logo {
+    width: 30px; height: 30px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; flex-shrink: 0;
+  }
+
+  .hd-text { display: flex; flex-direction: column; gap: 1px; }
+  .hd-title { font-size: 13.5px; font-weight: 600; letter-spacing: -0.01em; }
+  .hd-sub { font-size: 10.5px; color: var(--text-muted); font-family: 'DM Mono', monospace; }
+
+  .user-chip {
+    display: flex; align-items: center; gap: 7px;
+    padding: 4px 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 20px;
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    color: var(--text-dim);
+  }
+
+  .role-tag {
+    padding: 2px 6px; border-radius: 3px;
+    font-size: 9px; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+
+  .role-tag.admin { background: var(--accent-dim); color: var(--accent); }
+  .role-tag.manager { background: var(--manager-dim); color: var(--manager-color); }
+  .role-tag.member { background: var(--success-dim); color: var(--success); }
+
+  /* ── STATUS BAR ── */
+  .status-bar {
+    padding: 7px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px;
+    flex-shrink: 0;
+    font-size: 11px; font-family: 'DM Mono', monospace;
+  }
+
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--text-muted); flex-shrink: 0;
+  }
+  .status-dot.connecting { background: var(--warning); box-shadow: 0 0 6px var(--warning); animation: blink 1s infinite; }
+  .status-dot.connected { background: var(--success); box-shadow: 0 0 6px var(--success); }
+  .status-dot.error { background: var(--error); }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .status-text { color: var(--text-muted); }
+  .status-text.ok { color: var(--success); }
+  .status-text.err { color: var(--error); }
+
+  .access-pills { display: flex; gap: 5px; margin-left: auto; }
+  .ap {
+    padding: 2px 7px; border-radius: 3px;
+    font-size: 9px; border: 1px solid; display: none;
+  }
+  .ap.own { background: var(--success-dim); color: var(--success); border-color: rgba(41,201,138,0.2); display: inline-block; }
+  .ap.reports { background: var(--manager-dim); color: var(--manager-color); border-color: rgba(155,116,255,0.2); }
+  .ap.all { background: var(--accent-dim); color: var(--accent); border-color: rgba(61,142,240,0.2); }
+
+  /* ── MESSAGES ── */
+  .messages {
+    flex: 1; overflow-y: auto;
+    padding: 20px; display: flex;
+    flex-direction: column; gap: 16px;
+    scroll-behavior: smooth;
+  }
+
+  .messages::-webkit-scrollbar { width: 3px; }
+  .messages::-webkit-scrollbar-track { background: transparent; }
+  .messages::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  .msg { display: flex; gap: 10px; animation: slideUp 0.2s ease; }
+  .msg.user { flex-direction: row-reverse; }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .av {
+    width: 28px; height: 28px; border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; flex-shrink: 0; margin-top: 1px;
+  }
+  .av.ai { background: linear-gradient(135deg, var(--accent), var(--accent2)); }
+  .av.user { background: var(--surface3); border: 1px solid var(--border2); }
+
+  .bw { display: flex; flex-direction: column; gap: 3px; max-width: 76%; }
+  .msg.user .bw { align-items: flex-end; }
+
+  .bubble {
+    padding: 10px 14px; border-radius: 10px;
+    font-size: 13.5px; line-height: 1.65;
+  }
+
+  .bubble.ai {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-top-left-radius: 3px;
+  }
+
+  .bubble.user {
+    background: linear-gradient(135deg, rgba(61,142,240,0.14), rgba(109,74,255,0.08));
+    border: 1px solid rgba(61,142,240,0.18);
+    border-top-right-radius: 3px;
+  }
+
+  .bubble strong { color: var(--accent); font-weight: 600; }
+  .bubble em { color: var(--text-dim); font-style: italic; }
+
+  .ts {
+    font-size: 9.5px; color: var(--text-muted);
+    font-family: 'DM Mono', monospace; padding: 0 3px;
+  }
+
+  /* typing */
+  .typing { display: flex; gap: 4px; padding: 3px 0; align-items: center; }
+  .td { width: 5px; height: 5px; border-radius: 50%; background: var(--text-muted); animation: td 1.1s infinite; }
+  .td:nth-child(2) { animation-delay: 0.15s; }
+  .td:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes td { 0%,60%,100%{transform:translateY(0);opacity:0.3} 30%{transform:translateY(-4px);opacity:1} }
+
+  /* ── WELCOME ── */
+  .welcome {
+    text-align: center; padding: 30px 20px;
+    display: flex; flex-direction: column;
+    align-items: center; gap: 10px;
+  }
+
+  .w-icon {
+    width: 50px; height: 50px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; margin-bottom: 4px;
+  }
+
+  .welcome h2 { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
+  .welcome p { font-size: 13px; color: var(--text-muted); max-width: 360px; line-height: 1.6; }
+
+  /* ── SUGGESTIONS ── */
+  .sugs {
+    padding: 0 20px 12px;
+    display: flex; gap: 6px; flex-wrap: wrap; flex-shrink: 0;
+  }
+
+  .sug {
+    padding: 5px 11px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 16px; font-size: 11.5px; color: var(--text-dim);
+    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  }
+
+  .sug:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+  .sug:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── INPUT ── */
+  .input-area {
+    padding: 12px 20px 16px;
+    border-top: 1px solid var(--border);
+    background: rgba(9,14,26,0.92);
+    backdrop-filter: blur(20px);
+    flex-shrink: 0;
+  }
+
+  .input-row { display: flex; gap: 8px; align-items: flex-end; }
+
+  .iw {
+    flex: 1; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 10px;
+    display: flex; align-items: flex-end; gap: 8px;
+    padding: 8px 12px; transition: border-color 0.15s;
+  }
+
+  .iw:focus-within { border-color: var(--accent); }
+
+  textarea {
+    flex: 1; background: none; border: none;
+    color: var(--text); font-size: 13.5px;
+    font-family: 'DM Sans', sans-serif;
+    outline: none; resize: none;
+    line-height: 1.5; max-height: 100px; min-height: 22px;
+  }
+
+  textarea::placeholder { color: var(--text-muted); }
+  textarea:disabled { opacity: 0.5; }
+
+  .send {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none; border-radius: 7px; color: white;
+    cursor: pointer; display: flex; align-items: center;
+    justify-content: center; transition: opacity 0.15s, transform 0.1s;
+    flex-shrink: 0;
+  }
+  .send:hover { opacity: 0.88; transform: translateY(-1px); }
+  .send:active { transform: translateY(0); }
+  .send:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+  .send svg { width: 14px; height: 14px; }
+
+  @media (max-width: 560px) {
+    .bubble { font-size: 13px; }
+    .sugs { display: none; }
+    .user-chip span:first-child { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="hd-left">
+      <div class="logo">🧠</div>
+      <div class="hd-text">
+        <div class="hd-title">Meeting Intelligence</div>
+        <div class="hd-sub">Bluetree Group</div>
+      </div>
+    </div>
+    <div class="user-chip" id="userChip" style="display:none;">
+      <span id="chipEmail"></span>
+      <span class="role-tag" id="chipRole"></span>
+    </div>
+  </header>
+
+  <div class="status-bar">
+    <div class="status-dot" id="sDot"></div>
+    <span class="status-text" id="sTxt">Initialising...</span>
+    <div class="access-pills" id="accessPills">
+      <span class="ap own">Own data</span>
+      <span class="ap reports" id="apReports">Direct reports</span>
+      <span class="ap all" id="apAll">All data</span>
+    </div>
+  </div>
+
+  <div class="messages" id="messages">
+    <div class="welcome" id="welcome">
+      <div class="w-icon">🧠</div>
+      <h2>Meeting Intelligence</h2>
+      <p>Ask questions about your meetings, actions and decisions. Data is filtered to your access level.</p>
+    </div>
+  </div>
+
+  <div class="sugs" id="sugs">
+    <div class="sug" onclick="useSug(this)">What are my open actions?</div>
+    <div class="sug" onclick="useSug(this)">Show my team's actions</div>
+    <div class="sug" onclick="useSug(this)">What meetings happened this week?</div>
+    <div class="sug" onclick="useSug(this)">Any high priority actions?</div>
+    <div class="sug" onclick="useSug(this)">What decisions were made recently?</div>
+  </div>
+
+  <div class="input-area">
+    <div class="input-row">
+      <div class="iw">
+        <textarea id="inp" placeholder="Ask about meetings, actions, decisions..."
+          rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)" disabled></textarea>
+      </div>
+      <button class="send" id="sendBtn" onclick="send()" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────────────
+const WORKER_URL = 'https://meeting-intelligence-proxy.jkinsella.workers.dev';
+
+// ── STATE ─────────────────────────────────────────────────────────────────
+let userData = null;
+let dbData = { meetings: [], actions: [] };
+let history = [];
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+window.onload = async () => {
+  setStatus('connecting', 'Connecting...');
+
+  // Debug — show all available info
+  const params = new URLSearchParams(window.location.search);
+  const urlEmail = params.get('user') || params.get('email') || '';
+  const softrEmail = '{{logged_in_user.email}}';
+  const email = softrEmail.includes('{{') ? urlEmail : softrEmail;
+
+  // Show debug info in status bar
+  setStatus('connecting', `URL email: "${urlEmail}" | Softr var: "${softrEmail}"`);
+
+  if (!email) {
+    setStatus('error', `No email found. URL: "${window.location.href}"`);
+    return;
+  }
+
+  setStatus('connecting', `Connecting as: ${email}`);
+
+  try {
+    await loadData(email);
+  } catch (e) {
+    setStatus('error', `Error: ${e.message} | Email: ${email}`);
+  }
+};
+
+// ── LOAD DATA ─────────────────────────────────────────────────────────────
+async function loadData(email) {
+  const res = await fetch(`${WORKER_URL}/query`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userEmail: email })
+  });
+
+  if (res.status === 403) {
+    const err = await res.json();
+    throw new Error(err.error || 'Access denied');
+  }
+
+  if (!res.ok) throw new Error('Failed to connect to data source');
+
+  const data = await res.json();
+  userData = data.user;
+  dbData = { meetings: data.meetings, actions: data.actions };
+
+  // Update UI
+  document.getElementById('chipEmail').textContent = userData.email;
+  const roleEl = document.getElementById('chipRole');
+  roleEl.textContent = userData.role;
+  roleEl.className = `role-tag ${userData.role}`;
+  document.getElementById('userChip').style.display = 'flex';
+
+  if (userData.role === 'manager' || userData.role === 'admin') {
+    document.getElementById('apReports').style.display = 'inline-block';
+  }
+  if (userData.role === 'admin') {
+    document.getElementById('apAll').style.display = 'inline-block';
+  }
+
+  setStatus('connected', `Connected · ${dbData.meetings.length} meetings · ${dbData.actions.length} actions`);
+
+  document.getElementById('inp').disabled = false;
+  document.getElementById('sendBtn').disabled = false;
+  document.getElementById('welcome').style.display = 'none';
+
+  const reportStr = data.directReports?.length > 0
+    ? ` I can see data for your direct reports: **${data.directReports.join(', ')}**.`
+    : '';
+
+  const accessMsg = userData.role === 'admin'
+    ? 'You have **admin access** — I can see all meetings and actions across the business.'
+    : userData.role === 'manager'
+    ? `You have **manager access**.${reportStr}`
+    : `You have **member access** — I can see your meetings and actions.${reportStr}`;
+
+  addMsg('ai', `Connected. Hello **${userData.name}**. ${accessMsg} What would you like to know?`);
+}
+
+// ── SEND MESSAGE ──────────────────────────────────────────────────────────
+async function send() {
+  const inp = document.getElementById('inp');
+  const q = inp.value.trim();
+  if (!q || !userData) return;
+
+  inp.value = ''; autoResize(inp);
+  document.getElementById('sendBtn').disabled = true;
+  addMsg('user', q);
+  const typId = addTyping();
+
+  try {
+    // Refresh data on each query to get latest
+    const refreshRes = await fetch(`${WORKER_URL}/query`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userEmail: userData.email })
+    });
+    if (refreshRes.ok) {
+      const refreshed = await refreshRes.json();
+      dbData = { meetings: refreshed.meetings, actions: refreshed.actions };
+    }
+
+    const scopeNote = userData.role === 'admin'
+      ? 'ADMIN — full visibility of all data.'
+      : `${userData.role.toUpperCase()} — can see own data${userData.directReports?.length > 0 ? ` plus direct reports: ${userData.directReports.join(', ')}` : ''}.`;
+
+    history.push({ role: 'user', content: q });
+
+    const claudeRes = await fetch(`${WORKER_URL}/claude`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userEmail: userData.email,
+        payload: {
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          system: `You are Meeting Intelligence, an internal AI assistant for Bluetree Group.
+
+CURRENT USER: ${userData.name} (${userData.email})
+ACCESS: ${scopeNote}
+
+LIVE DATA (pre-filtered by server to this user's permitted scope):
+===
+MEETINGS (${dbData.meetings.length}):
+${JSON.stringify(dbData.meetings, null, 2)}
+
+ACTIONS (${dbData.actions.length}):
+${JSON.stringify(dbData.actions, null, 2)}
+===
+
+RULES:
+- Only discuss data shown above — never invent information
+- Always attribute actions to their owner
+- Show status (Open/In Progress/Complete) and priority when listing actions
+- Use British English
+- Be concise and direct
+- Today is ${new Date().toLocaleDateString('en-GB', {weekday:'long',year:'numeric',month:'long',day:'numeric'})}
+- If asked about data outside the user's scope, explain the restriction politely`,
+          messages: history
+        }
+      })
+    });
+
+    removeTyping(typId);
+
+    if (!claudeRes.ok) throw new Error('Claude API error');
+
+    const result = await claudeRes.json();
+    const answer = result.content[0].text;
+
+    history.push({ role: 'assistant', content: answer });
+    if (history.length > 16) history = history.slice(-16);
+
+    addMsg('ai', answer);
+
+  } catch (e) {
+    removeTyping(typId);
+    addMsg('ai', `Sorry, something went wrong: ${e.message}`);
+  }
+
+  document.getElementById('sendBtn').disabled = false;
+  document.getElementById('inp').focus();
+}
+
+// ── UI HELPERS ─────────────────────────────────────────────────────────────
+function addMsg(role, text) {
+  const msgs = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  const time = new Date().toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+  div.innerHTML = `
+    <div class="av ${role}">${role === 'ai' ? '🧠' : '👤'}</div>
+    <div class="bw">
+      <div class="bubble ${role}">${fmt(text)}</div>
+      <div class="ts">${time}</div>
+    </div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function addTyping() {
+  const msgs = document.getElementById('messages');
+  const div = document.createElement('div');
+  const id = 'tp' + Date.now();
+  div.id = id; div.className = 'msg ai';
+  div.innerHTML = `
+    <div class="av ai">🧠</div>
+    <div class="bw">
+      <div class="bubble ai">
+        <div class="typing">
+          <div class="td"></div><div class="td"></div><div class="td"></div>
+        </div>
+      </div>
+    </div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return id;
+}
+
+function removeTyping(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+}
+
+function fmt(text) {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/`(.+?)`/g, '<code style="background:var(--surface3);padding:1px 5px;border-radius:3px;font-family:DM Mono,monospace;font-size:11px;">$1</code>')
+    .replace(/^#{3} (.+)$/gm, '<div style="font-weight:600;font-size:11px;color:var(--text-dim);letter-spacing:0.07em;text-transform:uppercase;margin:8px 0 4px;padding-bottom:3px;border-bottom:1px solid var(--border);">$1</div>')
+    .replace(/^#{1,2} (.+)$/gm, '<div style="font-weight:600;font-size:14px;margin:8px 0 4px;letter-spacing:-0.01em;">$1</div>')
+    .replace(/^- (.+)$/gm, '<div style="padding:2px 0 2px 13px;position:relative;"><span style="position:absolute;left:3px;color:var(--accent);">·</span>$1</div>')
+    .replace(/^\d+\. (.+)$/gm, '<div style="padding:2px 0;">$1</div>')
+    .replace(/\n\n/g, '<br><br>')
+    .replace(/\n/g, '<br>');
+}
+
+function setStatus(state, text) {
+  const dot = document.getElementById('sDot');
+  const txt = document.getElementById('sTxt');
+  dot.className = `status-dot ${state}`;
+  txt.textContent = text;
+  txt.className = `status-text ${state === 'connected' ? 'ok' : state === 'error' ? 'err' : ''}`;
+}
+
+function useSug(el) {
+  if (el.disabled) return;
+  document.getElementById('inp').value = el.textContent;
+  send();
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+}
+</script>
+</body>
+</html>
