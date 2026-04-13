@@ -507,8 +507,9 @@ RULES:
 
     if (!claudeRes.ok) throw new Error('Claude API error');
 
-    const result = await claudeRes.json();
-    const answer = result.content[0].text;
+const result = await claudeRes.json();
+console.log('Claude result:', JSON.stringify(result));
+const answer = result.content?.[0]?.text || JSON.stringify(result);
 
     history.push({ role: 'assistant', content: answer });
     if (history.length > 16) history = history.slice(-16);
