@@ -290,6 +290,7 @@ window.onload = async () => {
     setStatus('error', 'No user email found — please access this page via the Softr portal');
     return;
   }
+
   try {
     await loadData(email);
   } catch (e) {
@@ -379,7 +380,9 @@ async function send(retryQuery) {
 
     const scopeNote = userData.role === 'admin'
       ? 'ADMIN — full visibility of all data.'
-      : `${userData.role.toUpperCase()} — can see own data${userData.directReports?.length > 0 ? ` plus direct reports: ${userData.directReports.join(', ')}` : ''}.`;
+      : `${userData.role.toUpperCase()} — can see own data${userData.directReports?.length > 0
+          ? ` plus direct reports: ${userData.directReports.join(', ')}`
+          : ''}.`;
 
     history.push({ role: 'user', content: q });
 
@@ -426,21 +429,19 @@ RULES:
     removeTyping(typId);
     const result = await claudeRes.json();
 
-    // Handle API errors gracefully
+    // Show exact error details for debugging
     if (result.error) {
       history.pop();
-      const t = result.error.type || '';
-      if (t === 'overloaded_error') { addErrMsg('Claude is currently busy — please try again in a moment', true); }
-      else if (t === 'rate_limit_error') { addErrMsg('Rate limit reached — please wait a moment and try again', true); }
-      else if (t === 'authentication_error') { addErrMsg('API authentication error — please contact your administrator'); }
-      else { addErrMsg(result.error.message || 'An API error occurred — please try again', true); }
+      const errType = result.error.type || 'unknown';
+      const errMsg = result.error.message || 'no message';
+      addErrMsg(`Error type: ${errType} | Message: ${errMsg}`, true);
       document.getElementById('sendBtn').disabled = false;
       return;
     }
 
     if (!result.content?.[0]?.text) {
       history.pop();
-      throw new Error('Unexpected response from API — please try again');
+      throw new Error(`Unexpected response: ${JSON.stringify(result).substring(0, 200)}`);
     }
 
     const answer = result.content[0].text;
