@@ -273,6 +273,7 @@
 </div>
 <script>
 const WORKER_URL = 'https://meeting-intelligence-proxy.jkinsella.workers.dev';
+const APP_SECRET = 'bt-mi-2026-xKggg9mP2dgf1111dqRvdffL8wZ3nP';
 
 let userData = null;
 let dbData = { meetings: [], actions: [] };
@@ -290,7 +291,6 @@ window.onload = async () => {
     setStatus('error', 'No user email found — please access this page via the Softr portal');
     return;
   }
-
   try {
     await loadData(email);
   } catch (e) {
@@ -303,7 +303,10 @@ async function loadData(email) {
   try {
     res = await fetch(`${WORKER_URL}/query`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-App-Secret': APP_SECRET
+      },
       body: JSON.stringify({ userEmail: email })
     });
   } catch (e) {
@@ -368,7 +371,10 @@ async function send(retryQuery) {
     try {
       const r = await fetch(`${WORKER_URL}/query`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-App-Secret': APP_SECRET
+        },
         body: JSON.stringify({ userEmail: userData.email })
       });
       if (r.ok) {
@@ -390,7 +396,10 @@ async function send(retryQuery) {
     try {
       claudeRes = await fetch(`${WORKER_URL}/claude`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-App-Secret': APP_SECRET
+        },
         body: JSON.stringify({
           userEmail: userData.email,
           payload: {
@@ -429,7 +438,6 @@ RULES:
     removeTyping(typId);
     const result = await claudeRes.json();
 
-    // Show exact error details for debugging
     if (result.error) {
       history.pop();
       const errType = result.error.type || 'unknown';
